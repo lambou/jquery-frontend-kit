@@ -7,7 +7,36 @@
  *  - jQuery UI v1.12.1
  *  - Slimselect v1.27.0
  */
+
 (function ($, document) {
+    try {
+        $.xhrPool = [];
+
+        $.xhrPool.abortAll = function () {
+            $.each(this, function (jqXHR) {
+                try {
+                    jqXHR?.abort();
+                } catch (error) {
+                    console.info('jqXHR.abort', error);
+                }
+            });
+        };
+
+        $.ajaxSetup({
+            beforeSend: function (jqXHR) {
+                $.xhrPool.push(jqXHR);
+            },
+            complete: function (jqXHR) {
+                var index = $.xhrPool.indexOf(jqXHR);
+                if (index > -1) {
+                    $.xhrPool.splice(index, 1);
+                }
+            }
+        });
+    } catch (xhrPoolError) {
+        console.info("xhrPoolError", xhrPoolError);
+    }
+
     /**
      * click-once
      */
@@ -84,11 +113,32 @@
             $(this).css('overflow-y', 'auto');
 
             let self = $(this);
-
+            // console.log("$('.modal-backdrop').length", $('.modal-backdrop').length, self.css('z-index'));
             setTimeout(function () {
-                var zIndex = 100000 + (10 * $('.modal-backdrop').length);
-                self.css('z-index', zIndex);
-                $(document).find('.modal-backdrop').not('.modal-stack').css('z-index', zIndex - 1).addClass('modal-stack');
+                // highest z index
+                let highestZIndex = 0;
+
+                // console.log("modal backdrop count", $('.modal-backdrop').length);
+
+                try {
+                    for (const backdrop of $('.modal-backdrop').toArray()) {
+                        // console.log("backdrop.css('z-index')", backdrop.style.zIndex);
+
+                        const currentZIndex = Number(`${backdrop.style.zIndex}`.length !== 0 ? backdrop.style.zIndex : 1000);
+
+                        if (Number(highestZIndex) < currentZIndex) {
+                            highestZIndex = currentZIndex;
+                        }
+                    }
+                    // console.log("highestZIndex", highestZIndex);
+
+                    // console.log("100ms $('.modal-backdrop').length", $('.modal-backdrop').length)
+                    const zIndex = highestZIndex + 1;
+                    self.css('z-index', zIndex + 1);
+                    $(document).find('.modal-backdrop').not('.modal-stack').css('z-index', zIndex).addClass('modal-stack');
+                } catch (error) {
+                    console.log("bug while dealing with modal", error);
+                }
             }, 100);
         });
 
@@ -96,6 +146,12 @@
         $(document).on('hide.bs.modal', '.modal', function (event) {
             if ($('.modal-backdrop').length === 1) {
                 $(document).find("html").css({ 'overflow-y': '' });
+            }
+
+            try {
+                $.xhrPool.abortAll()
+            } catch (xhrPoolAbortAllError) {
+                console.log("$.xhrPool.abortAll error", xhrPoolAbortAllError);
             }
         });
     }());
@@ -166,7 +222,6 @@
         }
 
         $(document).on("click", ".inject-query-param", function (e) {
-            e.stopImmediatePropagation();
             e.stopPropagation();
 
             // only checkbox and radio input
@@ -791,7 +846,7 @@
 
             try {
                 //real href
-                var realHref = params.hrefParser ? params.hrefParser(btn.data('href') ?? btn.attr('href'), btn) : btn.data('href') ?? btn.attr('href');
+                const realHref = params.hrefParser ? params.hrefParser(btn.data('href') ?? btn.attr('href'), btn) : btn.data('href') ?? btn.attr('href');
 
                 // fetch content
                 await $.get(realHref ?? btn.attr('href')).done(async function (data) {
@@ -800,7 +855,7 @@
                     try {
                         // onLoad callback
                         if (params.onLoad) {
-                            await params.onLoad();
+                            await params.onLoad(btn);
                         }
 
                     } catch (error) {
@@ -812,19 +867,35 @@
                      */
                     $(document).find(params.modalId).off('hidden.bs.modal'); // off the previous handler if exist
                     $(document).find(params.modalId).on('hidden.bs.modal', async function (e) {
+                        // empty the content
+                        // very important
+                        // has been causing me a lot of trouble
+                        $(document).find(params.modalId).find('.modal-content').empty();
+
                         if (params.onCloseMethod) {
-                            await params.onCloseMethod();
+                            await params.onCloseMethod(btn);
                         }
                     })
 
                     /**
                      * Display the modal
                      */
-                    $(document).find(params.modalId).modal({
-                        show: true,
-                        backdrop: 'static',
-                        keyboard: true
-                    });
+                    if (window.bootstrap?.Modal?.getOrCreateInstance) {
+                        const modalEl = document.querySelector(params.modalId);
+                        const modalInstance = window.bootstrap.Modal.getOrCreateInstance(modalEl, {
+                            keyboard: false,
+                            backdrop: 'static',
+                            focus: true
+                        });
+                        
+                        modalInstance.show();
+                    } else {
+                        $(document).find(params.modalId).modal({
+                            show: true,
+                            backdrop: 'static',
+                            keyboard: true
+                        });
+                    }
                 }).fail(async (xhr, status, error) => {
 
                     // the user is not authorized
@@ -848,7 +919,7 @@
 
                         // applying success callback process
                         if (params && params.errorCallback) {
-                            await params.errorCallback(xhr, status, error);
+                            await params.errorCallback(xhr, status, error, btn);
                         }
                     }
                 }).always(function () {
@@ -870,11 +941,11 @@
 
         try {
             // listen to modal opening
+            $(document).off(params.event, params.triggerSelector);
             $(document).on(params.event, params.triggerSelector, async function (e) {
-                e.stopImmediatePropagation();
                 e.stopPropagation();
                 e.preventDefault();
-
+                console.log("setup modal > btn clicked", params.triggerSelector)
                 // triggerer
                 var triggerer = $(this);
 
@@ -897,7 +968,7 @@
 
                         // listen to refresh buton
                         $(document).find(params.modalId).on('click', params.refreshButton, function (e) {
-                            e.stopImmediatePropagation();
+                            e.stopPropagation();
                             e.preventDefault();
                             // reload the component
                             load(($(this).data('href') ?? $(this).attr('href')) ? $(this) : triggerer);
@@ -914,11 +985,11 @@
 
     /**
      * Define a form modal
-     * @param {{modalId:string; openBtn: string; hrefParser?: (url:string, target: JQuery) => string|Promise<string>; openLoadingContainer?:string; refreshBtn?: string; beforeOpen?: (trigger: JQuery) => boolean|Promise<boolean>; onOpen?: () => void|Promise<void>; onClose?: () => void|Promise<void>; errorMessage?: string; successMessage?:string; onFail?: (jqXhr: JQuery.jqXHR<any>) => void|Promise<void>;}} options parameters
+     * @param {{modalId:string; openBtn: string; hrefParser?: (url:string, target: JQuery) => string|Promise<string>; openLoadingContainer?:string; refreshBtn?: string; beforeOpen?: (trigger: JQuery) => boolean|Promise<boolean>; onOpen?: (btn: JQuery) => void|Promise<void>; onClose?: (btn: JQuery) => void|Promise<void>; errorMessage?: string; successMessage?:string; onFail?: (jqXhr: JQuery.jqXHR<any>) => void|Promise<void>;}} options parameters
      */
     window.defineDetailsModal = (options) => {
         // defaults options
-        var params = $.extend(true, {
+        const params = $.extend(true, {
             openLoadingContainer: 'body',
         }, options);
 
@@ -938,7 +1009,7 @@
 
     /**
      * Define a form modal
-     * @param {{modalId:string; openBtn: string; hrefParser?: (url:string, target: JQuery) => string|Promise<string>; form: string; method?: string; resetOnSuccess?: boolean; openLoadingContainer?:string; submitLoadingContainer?:string; refreshBtn?: string; onOpen?: () => void|Promise<void>; onClose?: () => void|Promise<void>; formActionParser?: (url:string) => string|Promise<string>; errorMessage?: string; successMessage?:string; onSuccess?: (data: any, status: JQuery<TElement = HTMLElement>.Ajax.SuccessTextStatus, xhr: JQuery.jqXHR<any>) => void|Promise<void>; onFail?: (jqXhr: JQuery.jqXHR<any>) => void|Promise<void>;}} options parameters
+     * @param {{modalId:string; openBtn: string; hrefParser?: (url:string, target: JQuery) => string|Promise<string>; form: string; method?: string; resetOnSuccess?: boolean; openLoadingContainer?:string; submitLoadingContainer?:string; refreshBtn?: string; onOpen?: (btn: JQuery) => void|Promise<void>; onClose?: (btn: JQuery) => void|Promise<void>; formActionParser?: (url:string) => string|Promise<string>; errorMessage?: string; successMessage?:string; onSuccess?: (data: any, status: JQuery<TElement = HTMLElement>.Ajax.SuccessTextStatus, xhr: JQuery.jqXHR<any>) => void|Promise<void>; onFail?: (jqXhr: JQuery.jqXHR<any>) => void|Promise<void>;}} options parameters
      */
     window.defineFormModal = function (options) {
         // defaults options
@@ -1049,6 +1120,126 @@
     }
 
     /**
+     * Define a form
+     * @param {{
+     * urlAttr: string;
+     * containerId:string; 
+     * form: string; 
+     * method?: string; 
+     * resetOnSuccess?: boolean; 
+     * openLoadingContainer?:string; 
+     * submitLoadingContainer?:string; 
+     * refreshBtn?: string; 
+     * onOpen?: (btn: JQuery) => void|Promise<void>; 
+     * onClose?: (btn: JQuery) => void|Promise<void>; 
+     * formActionParser?: (url:string) => string|Promise<string>; 
+     * errorMessage?: string;
+     *  successMessage?:string; 
+     * onSuccess?: (data: any, status: JQuery<TElement = HTMLElement>.Ajax.SuccessTextStatus, xhr: JQuery.jqXHR<any>) => void|Promise<void>; 
+     * onFail?: (jqXhr: JQuery.jqXHR<any>) => void|Promise<void>;
+     * }} options parameters
+     */
+    window.defineForm = function (options) {
+        // defaults options
+        const params = $.extend(true, {
+            resetOnSuccess: false,
+            openLoadingContainer: 'body',
+            method: 'post'
+        }, options);
+
+        try {
+            // cancel previous listener
+            $(document).find(params.containerId).off("submit", params.form);
+
+            // add new listener
+            $(document).find(params.containerId).on("submit", params.form, function (e) {
+                e.preventDefault();
+
+                // get form element
+                var formElement = $(this).get()[0];
+
+                // set form data
+                let formData = new FormData(formElement)
+
+                // start loading
+                if (params.submitLoadingContainer) {
+                    $(params.submitLoadingContainer).LoadingOverlay("show");
+                } else {
+                    $(params.containerId).LoadingOverlay("show");
+                }
+
+                // submit data
+                $.ajax({
+                    url: params.formActionParser ? params.formActionParser($(this).attr("action")) : $(this).attr("action"),
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    cache: false,
+                    type: params.method,
+                    success: function (data, status, xhr) {
+                        // response processing
+                        if (xhr.responseJSON) {
+                            $.alert({
+                                title: 'Success',
+                                type: 'green',
+                                content: $(`<span>${params.successMessage ?? xhr.responseJSON.message ?? 'the operation was successful.'}</span>`).text()
+                            })
+                        } else {
+                            // replace the current content
+                            $(document).find(params.containerId).html(data);
+                        }
+
+                        if (params.resetOnSuccess) {
+                            // reset form
+                            formElement.reset();
+                        }
+
+                        // success callback
+                        if (params.onSuccess) {
+                            params.onSuccess(data, status, xhr);
+                        }
+                    },
+                    error: (jqXhr) => {
+                        if (jqXhr.responseJSON) {
+                            $.alert({
+                                title: 'Operation failed',
+                                type: 'red',
+                                content: $(`<span>${params.errorMessage ?? jqXhr.responseJSON.message ?? 'The server encountered a problem while processing your request, please try again later.'}</span>`).text()
+                            })
+                        } else {
+                            $.alert({
+                                title: 'Operation failed',
+                                type: 'red',
+                                content: $(`<span>${params.errorMessage ?? jqXhr.responseText ?? 'The server encountered a problem while processing your request, please try again later.'}</span>`).text()
+                            })
+                        }
+
+                        // fail callback
+                        if (params.onFail) {
+                            params.onFail(jqXhr);
+                        }
+                    },
+                    complete: function () {
+                        // stop loading
+                        if (params.submitLoadingContainer) {
+                            $(params.submitLoadingContainer).LoadingOverlay("hide");
+                        } else {
+                            $(params.containerId).LoadingOverlay("hide");
+                        }
+                    }
+                });
+            });
+
+            // setup edition modal
+            return window.loadContent(params.containerId, params.urlAttr, params.refreshBtn, {
+                successCallback: params.onOpen
+            });
+        } catch (error) {
+            console.error('defineForm error', error)
+        }
+    }
+
+    /**
      * Define action dialog for resource
      * @param {{customMessage?:string; customMessageAttr?:string; containerSelector?:string; checkboxItemSelector?:string; resourceIdArr?:string; actionBtnIdAttr?:string; actionBtn: string; action: string; resourceLabelAttr?:string; resourceUrlAttr?:string; resourceText?:string; method:string; errorMessage?: string; customErrorMessage?:string; customErrorMessageAttr?:string; successMessage?:string; customSuccessMessage?:string; customSuccessMessageAttr?:string; onSuccess?: (data: any, status: JQuery<TElement = HTMLElement>.Ajax.SuccessTextStatus, xhr: JQuery.jqXHR<any>) => void|Promise<void>; onFail?: (jqXhr: JQuery.jqXHR<any>) => void|Promise<void>;}} options parameters
      */
@@ -1067,7 +1258,6 @@
 
         $(document).off('click', params.actionBtn);
         $(document).on('click', params.actionBtn, function (e) {
-            e.stopImmediatePropagation();
             e.stopPropagation();
             e.preventDefault();
 
@@ -1180,22 +1370,22 @@
     }
 
     /**
-     * Define delete dialog for resource deletion
-     * @param {{actionBtn: string; customMessage?:string; customMessageAttr?:string; type?: "delete"|"restore"; resourceLabelAttr?:string; resourceUrlAttr?:string; method?:string; errorMessage?: string; successMessage?:string; onSuccess?: (data: any, status: JQuery<TElement = HTMLElement>.Ajax.SuccessTextStatus, xhr: JQuery.jqXHR<any>) => void|Promise<void>; onFail?: (jqXhr: JQuery.jqXHR<any>) => void|Promise<void>;}} options parametrs
+     * Define remote confirm dialog
+     * @param {{actionBtn: string; customMessage?:string; skipConfirm: boolean; customMessageAttr?:string; type?: "delete"|"restore"; resourceLabelAttr?:string; resourceUrlAttr?:string; method?:string; errorMessage?: string; successMessage?:string; onSuccess?: (data: any, status: JQuery<TElement = HTMLElement>.Ajax.SuccessTextStatus, xhr: JQuery.jqXHR<any>) => void|Promise<void>; onFail?: (jqXhr: JQuery.jqXHR<any>) => void|Promise<void>;}} options parametrs
      */
-    window.defineDeleteOrRestoreDialog = (options) => {
+    window.remoteConfirmDialog = (options) => {
         // defaults options
         let params = $.extend(true, {
             resourceLabelAttr: 'data-name',
             customMessageAttr: "data-custom-message",
             resourceUrlAttr: "href",
             method: 'delete',
-            type: "delete"
+            type: "delete",
+            skipConfirm: false
         }, options);
 
         $(document).off('click', params.actionBtn);
         $(document).on('click', params.actionBtn, function (e) {
-            e.stopImmediatePropagation();
             e.stopPropagation();
             e.preventDefault();
 
@@ -1204,94 +1394,118 @@
             // extract custom message
             let customMessage = params.customMessage ?? self.attr(params.customMessageAttr);
 
-            let confirm = $.confirm({
-                type: 'dark',
-                title: 'Confirmation',
-                content: $(`<span>${customMessage ?? `Do you really want to ${params.type} the resource "<strong>${self.attr(params.resourceLabelAttr)}</strong>"`}</span>`).text(),
-                buttons: {
-                    yes: {
-                        text: 'Yes',
-                        action: function () {
-                            confirm.showLoading(true);
-
-                            $.ajax({
-                                url: $(self).attr(params.resourceUrlAttr),
-                                data: {
-                                    _method: params.method
-                                },
-                                processData: false,
-                                contentType: false,
-                                cache: false,
-                                type: params.method,
-                                success: function (data, status, xhr) {
-                                    if (xhr.responseJSON) {
-                                        $.alert({
-                                            icon: 'fa fa-check text-success',
-                                            title: "Success",
-                                            type: "green",
-                                            content: $(`<span>${params.successMessage ?? xhr.responseJSON.message ?? "The request was executed successfully"}</span>`).text(),
-                                            onClose: function () {
-                                                // success callback
-                                                if (params.onSuccess) {
-                                                    params.onSuccess(data, status, xhr, self);
-                                                }
-                                            }
-                                        });
-                                    } else {
-                                        $.alert({
-                                            icon: 'fa fa-check text-success',
-                                            title: "Success",
-                                            type: "green",
-                                            content: $(`<span>${params.successMessage ?? xhr.responseText ?? "The request was executed successfully"}</span>`).text(),
-                                            onClose: function () {
-                                                // success callback
-                                                if (params.onSuccess) {
-                                                    params.onSuccess(data, status, xhr, self);
-                                                }
-                                            }
-                                        });
+            /**
+             * Make the call
+             */
+            const makeTheCall = (confirmInstance) => {
+                $.ajax({
+                    url: $(self).attr(params.resourceUrlAttr),
+                    data: {
+                        _method: params.method
+                    },
+                    processData: false,
+                    contentType: false,
+                    cache: false,
+                    type: params.method,
+                    success: function (data, status, xhr) {
+                        if (xhr.responseJSON) {
+                            $.alert({
+                                icon: 'fa fa-check text-success',
+                                title: "Success",
+                                type: "green",
+                                content: $(`<span>${params.successMessage ?? xhr.responseJSON.message ?? "The request was executed successfully"}</span>`).text(),
+                                onClose: function () {
+                                    // success callback
+                                    if (params.onSuccess) {
+                                        params.onSuccess(data, status, xhr, self);
                                     }
-                                },
-                                error: (jqXhr) => {
-                                    if (jqXhr.responseJSON) {
-                                        $.alert({
-                                            title: `Failed to ${params.type} the resource`,
-                                            type: 'red',
-                                            content: $(`<span>${params.errorMessage ?? jqXhr.responseJSON.message ?? 'The server encountered a problem while processing your request, please try again later.'}</span>`).text(),
-                                            onClose: function () {
-                                                // fail callback
-                                                if (params.onFail) {
-                                                    params.onFail(jqXhr, self);
-                                                }
-                                            }
-                                        })
-                                    } else {
-                                        $.alert({
-                                            title: `Failed to ${params.type} the resource`,
-                                            content: $(`<span>${params.errorMessage ?? jqXhr.responseText ?? 'The server encountered a problem while processing your request, please try again later.'}</span>`).text(),
-                                            onClose: function () {
-                                                // fail callback
-                                                if (params.onFail) {
-                                                    params.onFail(jqXhr, self);
-                                                }
-                                            }
-                                        })
-                                    }
-                                },
-                                complete: () => {
-                                    confirm.hideLoading(true);
-                                    confirm.close();
                                 }
                             });
-                            return false;
+                        } else {
+                            $.alert({
+                                icon: 'fa fa-check text-success',
+                                title: "Success",
+                                type: "green",
+                                content: $(`<span>${params.successMessage ?? xhr.responseText ?? "The request was executed successfully"}</span>`).text(),
+                                onClose: function () {
+                                    // success callback
+                                    if (params.onSuccess) {
+                                        params.onSuccess(data, status, xhr, self);
+                                    }
+                                }
+                            });
                         }
                     },
-                    no: function () {
+                    error: (jqXhr) => {
+                        if (jqXhr.responseJSON) {
+                            $.alert({
+                                title: `Failed to ${params.type} the resource`,
+                                type: 'red',
+                                content: $(`<span>${params.errorMessage ?? jqXhr.responseJSON.message ?? 'The server encountered a problem while processing your request, please try again later.'}</span>`).text(),
+                                onClose: function () {
+                                    // fail callback
+                                    if (params.onFail) {
+                                        params.onFail(jqXhr, self);
+                                    }
+                                }
+                            })
+                        } else {
+                            $.alert({
+                                title: `Failed to ${params.type} the resource`,
+                                content: $(`<span>${params.errorMessage ?? jqXhr.responseText ?? 'The server encountered a problem while processing your request, please try again later.'}</span>`).text(),
+                                onClose: function () {
+                                    // fail callback
+                                    if (params.onFail) {
+                                        params.onFail(jqXhr, self);
+                                    }
+                                }
+                            })
+                        }
+                    },
+                    complete: () => {
+                        if (confirmInstance) {
+                            try {
+                                confirmInstance.hideLoading(true);
+                                confirmInstance.close();
+                            } catch (closingErr) {
+                                console.log('makeTheCall error', closingErr);
+                            }
+                        }
                     }
-                }
-            });
+                });
+            }
+
+            if (params.skipConfirm) {
+                makeTheCall();
+            } else {
+                let confirm = $.confirm({
+                    type: 'dark',
+                    title: 'Confirmation',
+                    content: $(`<span>${customMessage ?? `Do you really want to ${params.type} the resource "<strong>${self.attr(params.resourceLabelAttr)}</strong>"`}</span>`).text(),
+                    buttons: {
+                        yes: {
+                            text: 'Yes',
+                            action: function () {
+                                confirm.showLoading(true);
+
+                                makeTheCall(confirm);
+
+                                return false;
+                            }
+                        },
+                        no: function () {
+                        }
+                    }
+                });
+            }
         });
     }
+
+    /**
+     * Define delete dialog for resource deletion
+     * @param {{actionBtn: string; customMessage?:string; customMessageAttr?:string; type?: "delete"|"restore"; resourceLabelAttr?:string; resourceUrlAttr?:string; method?:string; errorMessage?: string; successMessage?:string; onSuccess?: (data: any, status: JQuery<TElement = HTMLElement>.Ajax.SuccessTextStatus, xhr: JQuery.jqXHR<any>) => void|Promise<void>; onFail?: (jqXhr: JQuery.jqXHR<any>) => void|Promise<void>;}} options parametrs
+     */
+    window.defineDeleteOrRestoreDialog = window.remoteConfirmDialog;
 
     /**
      * Define grouped action with confirmation dialog
@@ -1660,7 +1874,7 @@
 
     /**
      * Load options form remote address
-     * @param {{readOnly: boolean; placeholder: string;ignorePlaceholder:boolean; itemsSelectedAttr:string; urlAttr:string; defaultValueAttr: string; renderItem: (data:any) => {value:string|number; label:string;};renderAttributes:(data:any) => any;}} options options
+     * @param {{optionGroupAttr?:string; readOnly: boolean; placeholder: string;ignorePlaceholder:boolean; itemsSelectedAttr:string; urlAttr:string; defaultValueAttr: string; renderItem: (data:any) => {value:string|number; label:string;};renderAttributes:(data:any) => any;}} options options
      */
     $.fn.remoteSelect = function (options) {
         /**
@@ -1673,6 +1887,7 @@
             defaultValueAttr: 'value',
             ignorePlaceholder: false,
             itemsSelectedAttr: 'data-items-selected',
+            optionGroupAttr: 'data-children',
             renderItem: function (data) {
                 return {
                     value: data,
@@ -1708,13 +1923,36 @@
                                     $(input).prepend($(`<option value="" data-placeholder="true">${settings.placeholder ?? $(input).attr("aria-placeholder") ?? "-- select an item --"}</option>`));
                                 }
 
-                                // add new options
-                                for (var item of data) {
-                                    // render option data
-                                    var option = settings.renderItem(item);
-                                    // render the option
-                                    $(input).append($(`<option${($(input).is(`[${settings.itemsSelectedAttr}]`) || defaultValue.includes(`${option.value}`)) ? ' selected' : ''} value="${option.value}"${objectToHtmlAttributes(settings.renderAttributes(item), ['value'])}>${option.label}</option>`));
+                                /**
+                                 * Render select items
+                                 * @param {Array<any>} list items list
+                                 */
+                                function renderItems(list) {
+                                    // add new options
+                                    for (var item of list) {
+                                        // render option data
+                                        const option = settings.renderItem(item);
+                                        // children attr
+                                        const childrenAttr = $(input).attr(settings.optionGroupAttr);
+                                        // children attribute defined
+                                        if (childrenAttr && Array.isArray(item[childrenAttr]) && item[childrenAttr].length !== 0) {
+                                            // render the option
+                                            $(input).append($(`<optgroup label="${option.label}">`));
+
+                                            // render items
+                                            renderItems(item[childrenAttr]);
+
+                                            // render the option
+                                            $(input).append($(`</optgroup>`));
+                                        } else {
+                                            // render the option
+                                            $(input).append($(`<option${($(input).is(`[${settings.itemsSelectedAttr}]`) || defaultValue.includes(`${option.value}`)) ? ' selected' : ''} value="${option.value}"${objectToHtmlAttributes(settings.renderAttributes(item), ['value'])}>${option.label}</option>`));
+                                        }
+                                    }
                                 }
+
+                                // render items
+                                renderItems(data);
 
                                 // no data found
                                 if (Array.isArray(data) && data.length === 0) {
@@ -1739,6 +1977,7 @@
 
                             nativeRender();
                         }
+
                     }).fail(async (xhr) => {
                         displayError(xhr);
                     }).always(function () {
@@ -1890,6 +2129,11 @@
                             // building request URL
                             var url = new URL($(input).attr(settings.urlAttr));
                             url.searchParams.set('term', term);
+
+                            // set the initial value
+                            if (defaultValue) {
+                                url.searchParams.set('initial', defaultValue);
+                            }
 
                             // fetch data
                             $.getJSON(url.toString(), request, function (data, status, xhr) {
@@ -2244,7 +2488,6 @@
             // add item
             container.off('click', localSettings.btnAddItem);
             container.on("click", localSettings.btnAddItem, function (e) {
-                e.stopImmediatePropagation();
                 e.stopPropagation();
                 e.preventDefault();
 
@@ -2310,7 +2553,6 @@
             // delete item
             container.off('click', localSettings.btnDeleteItem);
             container.on("click", localSettings.btnDeleteItem, function (e) {
-                e.stopImmediatePropagation();
                 e.stopPropagation();
                 e.preventDefault();
 
@@ -2395,7 +2637,6 @@
             // clear values
             container.off('click', localSettings.btnClearValues);
             container.on("click", localSettings.btnClearValues, function (e) {
-                e.stopImmediatePropagation();
                 e.stopPropagation();
 
                 container.find('[data-form-input]').each(function (_inputIndex, elt) {
@@ -2515,7 +2756,12 @@
 
                                 // generate the full url
                                 if ($(action).attr(settings.actionUrlAttr)) {
-                                    $(action).attr(settings.actionFullUrl, $(action).attr(settings.actionUrlAttr).replace(settings.actionUrlKeyParam, selected[0]));
+                                    const unencodedKey = settings.actionUrlKeyParam;
+                                    const encodedKey = encodeURIComponent(settings.actionUrlKeyParam);
+
+                                    $(action).attr(settings.actionFullUrl, $(action).attr(settings.actionUrlAttr)
+                                        .replace(unencodedKey, selected[0])
+                                        .replace(encodedKey, selected[0]));
                                 }
 
                                 // display the button
@@ -2945,10 +3191,14 @@
                     } else {
                         // cancel previous request if exists
                         if (previousAjaxRequest) {
-                            // abort the previous request
-                            previousAjaxRequest.abort();
-                            // clear previous request
-                            previousAjaxRequest = undefined;
+                            try {
+                                // abort the previous request
+                                previousAjaxRequest.abort();
+                                // clear previous request
+                                previousAjaxRequest = undefined;
+                            } catch (error) {
+                                console.error('previousAjaxRequest.abort', error);
+                            }
                         }
                         // fetch result
                         previousAjaxRequest = $.ajax({
