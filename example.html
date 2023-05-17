@@ -1,0 +1,148 @@
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JQuery Frontend Kit</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.15.4/css/all.css"
+        integrity="sha384-DyZ88mC6Up2uqS4h/KRgHuoeGwBcD4Ng9SiP4dIRy0EXTlnuz47vAwmeGwVChigm" crossorigin="anonymous" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.css"
+        integrity="sha512-aOG0c6nPNzGk+5zjwyJaoRUgCdOrfSDhmMID2u4+OIslr0GjpLKo7Xm0Ao3xmpM4T8AmIouRkqwj1nrdVsLKEQ=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-confirm/3.3.4/jquery-confirm.min.css"
+        integrity="sha512-0V10q+b1Iumz67sVDL8LPFZEEavo6H/nBSyghr7mm9JEQkOAm91HNoZQRvQdjennBb/oEuW+8oZHVpIKq+d25g=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/slim-select/1.27.0/slimselect.min.css"
+        integrity="sha512-ifnw7uo3puPqptyK3NL7X5zAilwRd7g5DjC8NDov8+zS/wyT1jaoVocaLePaZ7cGzflIFv58/4AtqImsO8UYxw=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"
+        integrity="sha512-+NqPlbbtM1QqiK8ZAo4Yrj2c4lNQoGv8P79DPtKzj++l5jnN39rHA/xsqn8zE9l0uSoxaCdrOgFs6yjyfbBxSg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"
+        integrity="sha512-uto9mlQzrs59VwILcLiRYeLKPPbS/bT71da/OEBYEwcdNUk8jYIy+D176RYoop1Da+f9mvkYrmj5MCLZWEtQuA=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-confirm/3.3.4/jquery-confirm.min.js"
+        integrity="sha512-zP5W8791v1A6FToy+viyoyUUyjCzx+4K8XZCKzW28AnCoepPNIXecxh9mvGuy3Rt78OzEsU+VCvcObwAMvBAww=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/slim-select/1.27.0/slimselect.min.js"
+        integrity="sha512-yqitdsAKt7YxIgEMBoZpBrlcwv8MvYeUjegatZuAGkt+G7g8bpQ6kXGlKlhNfVRmHrQG+CwlxZljdB7wUR2xnw=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="./jquery-frontend-kit.js"></script>
+
+    <style>
+        code {
+            color: green;
+        }
+
+        a {
+            color: rgb(59 130 246) !important;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        h1 {
+            padding-top: 2rem;
+        }
+
+        h2 {
+            padding-top: 2rem;
+        }
+    </style>
+</head>
+
+<body class="">
+    <div class="m-auto container p-8 flex flex-col items-start gap-4">
+        <h1 class="text-4xl font-bold">JQuery Frontend Kit</h1>
+        <p class="text-xl">Set of tools for jQuery frontend development.</p>
+
+        <h2 class="text-2xl font-bold">Requirements</h2>
+        <ul class="list-disc">
+            <li><a href="https://blog.jquery.com/2018/01/20/jquery-3-3-1-fixed-dependencies-in-release-tag/"
+                    target="_blank" rel="noopener noreferrer">jQuery v3.3.1</a>: <i>fast, small, and feature-rich
+                    JavaScript library.</i></li>
+            <li><a href="https://cdnjs.com/libraries/cleave.js/1.6.0" target="_blank" rel="noopener noreferrer">cleave
+                    v1.6.0</a> : <i>JavaScript library for formatting input text content when you are typing.</i></li>
+            <li><a href="https://gasparesganga.com/labs/jquery-loading-overlay/" target="_blank"
+                    rel="noopener noreferrer">jQuery loading-overlay v2.1.7</a>: <i>A flexible
+                    loading overlay jQuery plugin.</i></li>
+            <li><a href="https://craftpip.github.io/jquery-confirm/" target="_blank" rel="noopener noreferrer">jQuery
+                    confirm v3.3.4</a>: <i>alerts, confirms and dialogs in
+                    one.</i></li>
+            <li><a href="https://blog.jqueryui.com/2016/09/jquery-ui-1-12-1/" target="_blank"
+                    rel="noopener noreferrer">jQuery UI v1.12.1</a>: <i>curated set of user interface
+                    interactions, effects, widgets, and themes built on top of the jQuery JavaScript Library.</i></li>
+            <li><a href="https://slimselectjs.com/" target="_blank" rel="noopener noreferrer">Slimselect v1.27.0</a>:
+                <i>Advanced select dropdown.</i>
+            </li>
+            <li><a href="https://fontawesome.com/v5/docs/web/use-with/wordpress/install-manually" target="_blank"
+                    rel="noopener noreferrer">Fontawesome</a>: <i>set of icons
+                    for web apps.</i></li>
+
+        </ul>
+
+        <h2 id="toggle-display" class="text-2xl font-bold">Toggle display</h2>
+        <p>Apply the class <code>display-toggle</code> to the element that represent the toggle and add the
+            <b>selector</b> of the container to display or hide based on the toggle, as the <code>data-container</code>
+            attribute value.
+        </p>
+
+        <h3 id="toggle-display-example" class="text-xl font-bold">Example</h3>
+
+        <div class="inline-flex items-center gap-4 bg-gray-200 rounded-md p-4 min-h-[64px]">
+            <i class="display-toggle fa fa-eye cursor-pointer" data-container="#secret-message-element"></i>
+            <span id="secret-message-element" class="font-bold">Secret message</span>
+        </div>
+
+        <div class="p-4 bg-gray-200 border-l-2 border-yellow-500 flex gap-4 self-stretch">
+            <i class="fa fa-bell text-2xl text-yellow-500"></i>
+            <p>The container selector must be an <a href="https://www.w3schools.com/cssref/css_selectors.php"
+                    target="_blank" rel="noopener noreferrer">css selector</a>.
+            </p>
+        </div>
+
+        <h2 class="text-2xl font-bold">URL Query parameters injection from inputs</h2>
+        <p>Apply the class <code>inject-query-param</code> to a text or checkbox input and the value of the input will
+            be injected in the targeted url as a query parameter.</p>
+
+        <h3 class="text-xl font-bold">Available properties for the input</h3>
+        <ul class="list-disc">
+            <li><b>data-param</b>: query parameter name</li>
+            <li><b>data-target</b>: the link element selector</li>
+            <li><b>data-url-attr</b>: the attribute of the url on the link element. The default value is
+                <code>href</code>.
+            </li>
+            <li><b>data-value-attr</b>: custom input value attribute. Use it to initiate default input value. The
+                default value is <code>data-value</code></li>
+        </ul>
+        <h3 class="text-xl font-bold">Example</h3>
+        <a id="link-to-update" href="http://localhost:8000">Targeted
+            link</a>
+        <form action="#" class="flex flex-col gap-6 items-start">
+            <div class="flex flex-col gap-2">
+                <label>Text input</label>
+                <input type="text" data-param="username" class="p-4 border border-gray-400 inject-query-param"
+                    data-target="#link-to-update" data-url-attr="href" data-value-attr="data-value"
+                    placeholder="Enter a value">
+            </div>
+            <div class="flex flex-col gap-2">
+                <label class="inline-flex items-center gap-2"><input type="checkbox" data-param="delete-state"
+                        class="min-w-[32px] min-h-[32px] inject-query-param" data-target="#link-to-update"
+                        data-url-attr="href" data-value-attr="data-value" value="all"><span>All</span></label>
+            </div>
+        </form>
+
+        <div class="p-4 bg-gray-200 border-l-2 border-yellow-500 flex gap-4 self-stretch">
+            <i class="fa fa-bell text-2xl text-yellow-500"></i>
+            <p>The supported element are only <code>Text Input</code> and <code>Checkbox Input</code>.
+            </p>
+        </div>
+    </div>
+</body>
+
+</html>
